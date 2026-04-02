@@ -1,5 +1,7 @@
 # GitHub Interface Translator (Chinese)
 
+A Tampermonkey userscript that translates most GitHub interface text into Chinese while keeping file/folder names and code blocks unchanged.
+
 一个面向 GitHub 网页端的 Tampermonkey 油猴脚本。  
 它会将 GitHub 页面中的主要文案翻译为中文，同时尽量保持代码与文件名不被误翻，帮助你更快理解页面内容。
 
