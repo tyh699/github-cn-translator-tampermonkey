@@ -31,7 +31,7 @@
   const ENABLE_DYNAMIC_TRANSLATE = true;
   const BATCH_MARKER_PREFIX = '[[[GHTR_SPLIT_';
   const BATCH_MARKER_SUFFIX = ']]]';
-  const CACHE_STORAGE_KEY = 'gh_interface_translator_cache_v1';
+  const CACHE_STORAGE_KEY = 'gh_interface_translator_cache_v2';
   const CACHE_MAX_ENTRIES = 4000;
 
   const SKIP_CONTAINER_SELECTOR = [
@@ -193,8 +193,20 @@
     return isSkippableText(text);
   }
 
-  function getTranslationRoot() {
-    return document.querySelector('main') || document.querySelector('[role="main"]') || document.body;
+  function getTranslationRoots() {
+    const roots = [
+      document.querySelector('main'),
+      document.querySelector('[role="main"]'),
+      document.querySelector('#repo-content-pjax-container'),
+      document.querySelector('[data-testid="repository-sidebar"]'),
+      document.querySelector('.Layout-sidebar'),
+    ].filter(Boolean);
+
+    if (!roots.length && document.body) {
+      roots.push(document.body);
+    }
+
+    return Array.from(new Set(roots));
   }
 
   function collectTranslatableTextNodes(root, onlyUntranslated) {
@@ -227,7 +239,7 @@
   function requestSingleTranslate(textKey) {
     return new Promise((resolve) => {
       if (!gmRequest) {
-        resolve(textKey);
+        resolve(null);
         return;
       }
 
@@ -252,14 +264,14 @@
             setCachedTranslation(textKey, translated);
             resolve(translated);
           } catch (error) {
-            resolve(textKey);
+            resolve(null);
           }
         },
         ontimeout() {
-          resolve(textKey);
+          resolve(null);
         },
         onerror() {
-          resolve(textKey);
+          resolve(null);
         },
       });
     });
@@ -421,8 +433,12 @@
 
       await mapWithConcurrency(batch, CONCURRENCY, async (key) => {
         const translated = await requestSingleTranslate(key);
-        setCachedTranslation(key, translated || key);
-        translationMap.set(key, translated || key);
+        if (translated) {
+          setCachedTranslation(key, translated);
+          translationMap.set(key, translated);
+        } else {
+          translationMap.set(key, key);
+        }
       });
     });
 
@@ -491,11 +507,18 @@
   }
 
   async function translatePage() {
-    const root = getTranslationRoot();
-    if (!root) return;
+    const roots = getTranslationRoots();
+    if (!roots.length) return;
 
-    const nodes = collectTranslatableTextNodes(root, false);
-    await translateNodes(nodes);
+    const merged = new Set();
+    for (const root of roots) {
+      const nodes = collectTranslatableTextNodes(root, false);
+      for (const node of nodes) {
+        merged.add(node);
+      }
+    }
+
+    await translateNodes(Array.from(merged));
   }
 
   async function translatePendingRoots() {
@@ -505,13 +528,18 @@
     pendingRoots.clear();
 
     const merged = new Set();
-    const translationRoot = getTranslationRoot();
+    const translationRoots = getTranslationRoots();
     for (const root of roots) {
       if (!root || !root.isConnected) continue;
 
       const scanRoot = root.nodeType === Node.ELEMENT_NODE ? root : root.parentElement;
       if (!scanRoot) continue;
-      if (translationRoot && !translationRoot.contains(scanRoot)) continue;
+      if (
+        translationRoots.length &&
+        !translationRoots.some((translationRoot) => translationRoot.contains(scanRoot))
+      ) {
+        continue;
+      }
 
       const nodes = collectTranslatableTextNodes(scanRoot, true);
       for (const node of nodes) {
@@ -552,8 +580,8 @@
   function startDynamicObserver() {
     if (!ENABLE_DYNAMIC_TRANSLATE) return;
     if (dynamicObserver) return;
-    const root = getTranslationRoot();
-    if (!root) return;
+    const roots = getTranslationRoots();
+    if (!roots.length) return;
 
     dynamicObserver = new MutationObserver((mutationList) => {
       if (!isTranslated || isProcessing) return;
@@ -574,8 +602,8 @@
 
       if (reachedCap) {
         pendingRoots.clear();
-        const root = getTranslationRoot();
-        if (root) {
+        const roots = getTranslationRoots();
+        for (const root of roots) {
           pendingRoots.add(root);
         }
       }
@@ -588,10 +616,12 @@
       }, DYNAMIC_TRANSLATE_DEBOUNCE_MS);
     });
 
-    dynamicObserver.observe(root, {
-      childList: true,
-      subtree: true,
-    });
+    for (const root of roots) {
+      dynamicObserver.observe(root, {
+        childList: true,
+        subtree: true,
+      });
+    }
   }
 
   function stopDynamicObserver() {
