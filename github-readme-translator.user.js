@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         GitHub Interface Translator (Chinese)
 // @namespace    https://greasyfork.org/
-// @version      0.5.0
+// @version      0.6.0
 // @description  Translate most GitHub page text to Chinese while keeping file/folder names and code sections untouched.
-// @author       You
+// @author       Yuanhang Tang
 // @match        https://github.com/*
 // @grant        GM_xmlhttpRequest
 // @connect      translate.googleapis.com
