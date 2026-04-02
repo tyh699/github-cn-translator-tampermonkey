@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         GitHub Interface Translator (Chinese)
+// @name         Github翻译助手
 // @namespace    https://greasyfork.org/
-// @version      0.6.0
-// @description  Translate most GitHub page text to Chinese while keeping file/folder names and code sections untouched.
+// @version      0.7.0
+// @description  帮助你将 GitHub 页面中的主要英文内容快速翻译为中文，并尽量保留文件/文件夹名称及代码内容不被误翻，支持一键翻译与恢复，提升开源项目阅读效率。
 // @author       Yuanhang Tang
 // @match        https://github.com/*
 // @grant        GM_xmlhttpRequest
